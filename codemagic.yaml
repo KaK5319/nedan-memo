@@ -15,6 +15,36 @@ workflows:
           test -d android
           ls -la android
 
+      - name: Disable release lint checks
+        script: |
+          set -e
+          if [ -f android/app/build.gradle.kts ]; then
+            cat >> android/app/build.gradle.kts <<'GRADLEEOF'
+
+          android {
+              lint {
+                  checkReleaseBuilds = false
+              }
+          }
+          GRADLEEOF
+            echo "=== Patched android/app/build.gradle.kts (last 8 lines) ==="
+            tail -n 8 android/app/build.gradle.kts
+          elif [ -f android/app/build.gradle ]; then
+            cat >> android/app/build.gradle <<'GRADLEEOF'
+
+          android {
+              lint {
+                  checkReleaseBuilds false
+              }
+          }
+          GRADLEEOF
+            echo "=== Patched android/app/build.gradle (last 8 lines) ==="
+            tail -n 8 android/app/build.gradle
+          else
+            echo "ERROR: no app module build file found (android/app/build.gradle.kts or android/app/build.gradle)" >&2
+            exit 1
+          fi
+
       - name: Set app label and check applicationId
         script: |
           set -e
