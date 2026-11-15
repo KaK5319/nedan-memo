@@ -1,0 +1,60 @@
+workflows:
+  android-workflow:
+    name: Android APK
+
+    environment:
+      flutter: stable
+
+    scripts:
+      - name: Create Android project
+        script: |
+          set -e
+          echo "=== Creating Android project ==="
+          flutter create --platforms=android .
+          echo "=== Checking Android directory ==="
+          test -d android
+          ls -la android
+
+      - name: Set app label and check applicationId
+        script: |
+          set -e
+          python3 - <<'PYEOF'
+          import re, os
+          p = "android/app/src/main/AndroidManifest.xml"
+          s = open(p, encoding="utf-8").read()
+          if 'android:label="' in s:
+              s = re.sub(r'android:label="[^"]*"', 'android:label="値段メモ"', s, count=1)
+              open(p, "w", encoding="utf-8").write(s)
+              print("manifest label patched")
+          else:
+              sp = "android/app/src/main/res/values/strings.xml"
+              if os.path.exists(sp):
+                  t = open(sp, encoding="utf-8").read()
+                  t = re.sub(r'(<string name="app_name">)[^<]*', r'\g<1>値段メモ', t, count=1)
+                  open(sp, "w", encoding="utf-8").write(t)
+                  print("strings.xml app_name patched")
+          PYEOF
+          grep -o 'android:label="[^"]*"' android/app/src/main/AndroidManifest.xml || true
+          grep -rn "applicationId" android/app/build.gradle android/app/build.gradle.kts 2>/dev/null || true
+
+      - name: Install custom app icon
+        script: |
+          set -e
+          python3 - <<'PYEOF'
+          import base64, zipfile, io
+          data = base64.b64decode(open("icon/icons.b64", "rb").read())
+          zipfile.ZipFile(io.BytesIO(data)).extractall("android/app/src/main/res")
+          PYEOF
+          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+          ls android/app/src/main/res/mipmap-xxxhdpi/
+
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+
+      - name: Build APK
+        script: |
+          flutter build apk --release
+
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
