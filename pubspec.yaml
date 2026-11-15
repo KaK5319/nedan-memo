@@ -1,0 +1,25 @@
+name: nedan_memo
+description: 値段メモ - お店ごとの値段と写真を記録して、最安がひと目で分かるアプリ
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  file_picker: ^8.1.2
+  path_provider: ^2.1.4
+  url_launcher: ^6.3.1
+
+# Androidのビルドエラー対策: lifecycleプラグインを古い版に固定(compileSdk 34で動く版)
+# 新しい版は compileSdk 36 を要求し、file_picker(34) とぶつかって
+# :file_picker:checkDebugAarMetadata で落ちるため。movie-shelf と同じ対策。
+dependency_overrides:
+  flutter_plugin_android_lifecycle: 2.0.24
+
+flutter:
+  uses-material-design: true
