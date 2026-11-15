@@ -662,12 +662,29 @@ class StorePage extends StatelessWidget {
   }
 }
 
-/// 写真ビューア（写真自体のタップでは閉じない）
-class PhotoViewerPage extends StatelessWidget {
+/// 写真ビューア（写真自体のタップでは閉じない・2本指で拡大できる）
+class PhotoViewerPage extends StatefulWidget {
   const PhotoViewerPage({super.key, required this.title, required this.file});
 
   final String title;
   final File file;
+
+  @override
+  State<PhotoViewerPage> createState() => _PhotoViewerPageState();
+}
+
+class _PhotoViewerPageState extends State<PhotoViewerPage> {
+  final TransformationController _transformController =
+      TransformationController();
+
+  @override
+  void dispose() {
+    _transformController.dispose();
+    super.dispose();
+  }
+
+  bool get _isZoomed =>
+      _transformController.value.getMaxScaleOnAxis() > 1.01;
 
   @override
   Widget build(BuildContext context) {
@@ -677,20 +694,27 @@ class PhotoViewerPage extends StatelessWidget {
         children: [
           Positioned.fill(
             child: GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
+              onTap: () {
+                // 拡大中は背景タップで閉じない（閉じるのは✕ボタン）
+                if (!_isZoomed) Navigator.of(context).pop();
+              },
               child: Container(color: Colors.black),
             ),
           ),
-          Center(
-            child: GestureDetector(
-              onTap: () {},
-              child: Image.file(file, fit: BoxFit.contain),
+          Positioned.fill(
+            child: InteractiveViewer(
+              transformationController: _transformController,
+              minScale: 1.0,
+              maxScale: 4.0,
+              child: Center(
+                child: Image.file(widget.file, fit: BoxFit.contain),
+              ),
             ),
           ),
           Positioned(
             top: 44,
             left: 16,
-            child: Text(title,
+            child: Text(widget.title,
                 style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
