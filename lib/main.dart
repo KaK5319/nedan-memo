@@ -220,30 +220,24 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     }
-    // 実店舗を先に、ネットのお店は下にまとめて表示する
+    // 実店舗を先に並べ、ネットのお店は入口カードから専用ページで開く
     final physical = names.where((n) => !store.isOnline(n)).toList();
     final online = names.where((n) => store.isOnline(n)).toList();
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
       children: [
-        for (final name in physical) _storeCard(name),
-        if (online.isNotEmpty) ...[
-          const Padding(
-            padding: EdgeInsets.fromLTRB(4, 12, 4, 10),
-            child: Text(
-              'ネットのお店',
-              style: TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.bold, color: kTextSub),
-            ),
-          ),
-          for (final name in online) _storeCard(name),
-        ],
+        for (final name in physical) buildStoreCard(context, store, name),
+        if (online.isNotEmpty) _onlineEntranceCard(online),
       ],
     );
   }
 
-  Widget _storeCard(String name) {
-    final count = store.recordsOfStore(name).length;
+  /// ネットのお店への入口カード（タップで専用ページを開く）
+  Widget _onlineEntranceCard(List<String> online) {
+    var total = 0;
+    for (final n in online) {
+      total += store.recordsOfStore(n).length;
+    }
     return Card(
       color: kCard,
       margin: const EdgeInsets.only(bottom: 10),
@@ -252,10 +246,9 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(14),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => StorePage(store: store, storeName: name),
+            builder: (_) => OnlineStoresPage(store: store, query: query),
           ),
         ),
-        onLongPress: () => showStoreMenuSheet(context, store, name),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           child: Row(
@@ -277,32 +270,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Row(
                       children: [
-                        Flexible(
-                          child: Text(name,
-                              style: const TextStyle(
+                        const Flexible(
+                          child: Text('ネットのお店',
+                              style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color: kTextDark)),
                         ),
-                        if (store.isOnline(name)) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF5B7C99),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Text('ネット',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold)),
-                          ),
-                        ],
+                        const SizedBox(width: 8),
+                        netBadge(),
                       ],
                     ),
-                    Text('$count件',
+                    Text('${online.length}店・$total件',
                         style: const TextStyle(fontSize: 13, color: kTextSub)),
                   ],
                 ),
@@ -331,6 +310,165 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
       itemCount: ps.length,
       itemBuilder: (context, i) => ProductCard(store: store, product: ps[i]),
+    );
+  }
+}
+
+/// 「ネット」バッジ（お店カード・入口カード共通）
+Widget netBadge() {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: const Color(0xFF5B7C99),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: const Text('ネット',
+        style: TextStyle(
+            fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+  );
+}
+
+/// お店カード（お店一覧・ネットのお店ページ共通）
+Widget buildStoreCard(BuildContext context, DataStore store, String name) {
+  final count = store.recordsOfStore(name).length;
+  return Card(
+    color: kCard,
+    margin: const EdgeInsets.only(bottom: 10),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => StorePage(store: store, storeName: name),
+        ),
+      ),
+      onLongPress: () => showStoreMenuSheet(context, store, name),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3E8CF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.storefront,
+                  color: Color(0xFF9A7B4F), size: 26),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(name,
+                            style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: kTextDark)),
+                      ),
+                      if (store.isOnline(name)) ...[
+                        const SizedBox(width: 8),
+                        netBadge(),
+                      ],
+                    ],
+                  ),
+                  Text('$count件',
+                      style: const TextStyle(fontSize: 13, color: kTextSub)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: kTextSub),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// ネットのお店だけを並べる専用ページ（お店一覧の入口カードから開く）
+class OnlineStoresPage extends StatelessWidget {
+  const OnlineStoresPage({super.key, required this.store, required this.query});
+
+  final DataStore store;
+
+  /// お店一覧の検索文字列（一覧と同じ条件で絞り込む）
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        // お店一覧と同じ検索条件で、ネットのお店だけを取り出す
+        var names = store.storeNames().where((n) => store.isOnline(n)).toList();
+        if (query.isNotEmpty) {
+          names = names
+              .where((n) => store.recordsOfStore(n).any((r) =>
+                  (store.productById(r.productId)?.name ?? '').contains(query)))
+              .toList();
+        }
+        var total = 0;
+        for (final n in names) {
+          total += store.recordsOfStore(n).length;
+        }
+        return Scaffold(
+          appBar: AppBar(title: const Text('値段メモ')),
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('お店一覧に戻る'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: kTextDark,
+                    backgroundColor: kCard,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.storefront,
+                      color: Color(0xFF9A7B4F), size: 26),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text('ネットのお店',
+                        style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: kTextDark)),
+                  ),
+                  Text('${names.length}店・$total件',
+                      style: const TextStyle(fontSize: 14, color: kTextSub)),
+                ],
+              ),
+              const SizedBox(height: 14),
+              if (names.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 24),
+                  child: Center(
+                    child: Text('ネットのお店はまだありません',
+                        style: TextStyle(color: kTextSub, fontSize: 15)),
+                  ),
+                )
+              else
+                for (final name in names) buildStoreCard(context, store, name),
+            ],
+          ),
+        );
+      },
     );
   }
 }
