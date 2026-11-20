@@ -101,6 +101,9 @@ class DataStore extends ChangeNotifier {
   /// ネットのお店として印を付けた店名（店名をキーに保存）
   Set<String> onlineStores = {};
 
+  /// お店ごとに選んだアイコンのキー（店名をキーに保存）
+  Map<String, String> storeIcons = {};
+
   Directory? _docs;
   int _counter = 0;
 
@@ -145,12 +148,16 @@ class DataStore extends ChangeNotifier {
         // 旧データには無い項目なので、無ければ「ネットのお店なし」で始める
         onlineStores =
             ((j['onlineStores'] as List?) ?? []).whereType<String>().toSet();
+        // 旧データには無い項目なので、無ければ「アイコン未設定」で始める
+        final rawIcons = (j['storeIcons'] as Map<String, dynamic>?) ?? {};
+        storeIcons = rawIcons.map((k, v) => MapEntry(k, v.toString()));
       } catch (_) {
         // 壊れていたら空から始める
         products = [];
         records = [];
         intros = {};
         onlineStores = {};
+        storeIcons = {};
       }
     }
     notifyListeners();
@@ -162,11 +169,13 @@ class DataStore extends ChangeNotifier {
     // 記録が無くなったお店の印は落とす
     final liveStores = records.map((r) => r.storeName).toSet();
     onlineStores.removeWhere((n) => !liveStores.contains(n));
+    storeIcons.removeWhere((k, _) => !liveStores.contains(k));
     final j = {
       'products': products.map((e) => e.toJson()).toList(),
       'records': records.map((e) => e.toJson()).toList(),
       'intros': intros.map((k, v) => MapEntry(k, v.toJson())),
       'onlineStores': onlineStores.toList(),
+      'storeIcons': storeIcons,
     };
     await f.writeAsString(jsonEncode(j));
   }
@@ -310,6 +319,15 @@ class DataStore extends ChangeNotifier {
     await changed();
   }
 
+  /// お店に選ばれているアイコンのキー（未設定なら 'standard'）
+  String iconKeyOf(String store) => storeIcons[store] ?? 'standard';
+
+  /// お店のアイコンを選ぶ
+  Future<void> setStoreIcon(String name, String key) async {
+    storeIcons[name] = key;
+    await changed();
+  }
+
   /// お店の名前変更（記録すべてと紹介がついてくる）
   Future<void> renameStore(String oldName, String newName) async {
     if (oldName == newName || newName.isEmpty) return;
@@ -323,6 +341,11 @@ class DataStore extends ChangeNotifier {
     // ネットのお店の印も新しい名前についてくる
     if (onlineStores.remove(oldName)) {
       onlineStores.add(newName);
+    }
+    // アイコンの選択も新しい名前についてくる
+    final icon = storeIcons.remove(oldName);
+    if (icon != null && !storeIcons.containsKey(newName)) {
+      storeIcons[newName] = icon;
     }
     await changed();
   }

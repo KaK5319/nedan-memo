@@ -253,16 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           child: Row(
             children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3E8CF),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.storefront,
-                    color: Color(0xFF9A7B4F), size: 26),
-              ),
+              storeIconTile(storeIconSpec('net')),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -314,6 +305,56 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+/// お店の種類アイコン（キー・表示名・アイコン・タイル色・アイコン色）
+class StoreIconSpec {
+  const StoreIconSpec(this.key, this.label, this.icon, this.tile, this.color);
+
+  final String key;
+  final String label;
+  final IconData icon;
+  final Color tile;
+  final Color color;
+}
+
+const storeIconSpecs = <StoreIconSpec>[
+  StoreIconSpec(
+      'standard', '標準', Icons.storefront, Color(0xFFF3E8CF), Color(0xFF9A7B4F)),
+  StoreIconSpec(
+      'super', 'スーパー', Icons.shopping_cart, Color(0xFFDDEEDD), Color(0xFF2E7D32)),
+  StoreIconSpec('drug', 'ドラッグストア', Icons.medication, Color(0xFFF9DEDC),
+      Color(0xFFB3261E)),
+  StoreIconSpec('convenience', 'コンビニ', Icons.local_convenience_store,
+      Color(0xFFDCE9F7), Color(0xFF1565C0)),
+  StoreIconSpec('home_center', 'ホームセンター', Icons.handyman, Color(0xFFFBE3C5),
+      Color(0xFFB26A00)),
+  StoreIconSpec(
+      'discount', 'ディスカウント', Icons.sell, Color(0xFFE9DEF5), Color(0xFF6A3FA0)),
+  StoreIconSpec(
+      'net', 'ネット', Icons.language, Color(0xFFDCE6EE), Color(0xFF40627E)),
+];
+
+/// キーからアイコンの仕様を引く（未知のキーは標準）
+StoreIconSpec storeIconSpec(String key) {
+  for (final s in storeIconSpecs) {
+    if (s.key == key) return s;
+  }
+  return storeIconSpecs.first;
+}
+
+/// お店アイコンのタイル（カード・見出し共通）
+Widget storeIconTile(StoreIconSpec spec,
+    {double size = 46, double iconSize = 26}) {
+  return Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      color: spec.tile,
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Icon(spec.icon, color: spec.color, size: iconSize),
+  );
+}
+
 /// 「ネット」バッジ（お店カード・入口カード共通）
 Widget netBadge() {
   return Container(
@@ -347,16 +388,7 @@ Widget buildStoreCard(BuildContext context, DataStore store, String name) {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Row(
           children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3E8CF),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.storefront,
-                  color: Color(0xFF9A7B4F), size: 26),
-            ),
+            storeIconTile(storeIconSpec(store.iconKeyOf(name))),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -440,8 +472,8 @@ class OnlineStoresPage extends StatelessWidget {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(Icons.storefront,
-                      color: Color(0xFF9A7B4F), size: 26),
+                  storeIconTile(storeIconSpec('net'),
+                      size: 34, iconSize: 20),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text('ネットのお店',
@@ -628,8 +660,8 @@ class StorePage extends StatelessWidget {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(Icons.storefront,
-                      color: Color(0xFF9A7B4F), size: 26),
+                  storeIconTile(storeIconSpec(store.iconKeyOf(storeName)),
+                      size: 34, iconSize: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(storeName,
@@ -1588,6 +1620,26 @@ void showStoreMenuSheet(BuildContext context, DataStore store, String name) {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
+                onPressed: () {
+                  Navigator.of(c).pop();
+                  showStoreIconPickerSheet(context, store, name);
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: kTextDark,
+                  side: const BorderSide(color: Color(0xFFD8CBB2)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('アイコンを選ぶ',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
                 onPressed: () async {
                   Navigator.of(c).pop();
                   await store.setStoreOnline(name, !online);
@@ -1622,6 +1674,68 @@ void showStoreMenuSheet(BuildContext context, DataStore store, String name) {
               ),
             ),
           ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// お店のアイコンを選ぶシート（お店メニューから開く）
+void showStoreIconPickerSheet(
+    BuildContext context, DataStore store, String name) {
+  final current = store.iconKeyOf(name);
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: kCream,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (c) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('アイコンを選ぶ',
+                  style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                      color: kTextDark)),
+              const SizedBox(height: 4),
+              Text('「$name」のアイコン',
+                  style: const TextStyle(fontSize: 14, color: kTextSub)),
+              const SizedBox(height: 12),
+              for (final spec in storeIconSpecs)
+                InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () async {
+                    Navigator.of(c).pop();
+                    await store.setStoreIcon(name, spec.key);
+                  },
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                    child: Row(
+                      children: [
+                        storeIconTile(spec, size: 40, iconSize: 23),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(spec.label,
+                              style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: kTextDark)),
+                        ),
+                        if (spec.key == current)
+                          const Icon(Icons.check, color: kAccent, size: 24),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     ),
