@@ -220,62 +220,98 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     }
-    return ListView.builder(
+    // 実店舗を先に、ネットのお店は下にまとめて表示する
+    final physical = names.where((n) => !store.isOnline(n)).toList();
+    final online = names.where((n) => store.isOnline(n)).toList();
+    return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
-      itemCount: names.length,
-      itemBuilder: (context, i) {
-        final name = names[i];
-        final count = store.recordsOfStore(name).length;
-        return Card(
-          color: kCard,
-          margin: const EdgeInsets.only(bottom: 10),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => StorePage(store: store, storeName: name),
-              ),
-            ),
-            onLongPress: () => showRenameStoreSheet(context, store, name),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              child: Row(
-                children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3E8CF),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.storefront,
-                        color: Color(0xFF9A7B4F), size: 26),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(name,
-                            style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: kTextDark)),
-                        Text('$count件',
-                            style: const TextStyle(
-                                fontSize: 13, color: kTextSub)),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.chevron_right, color: kTextSub),
-                ],
-              ),
+      children: [
+        for (final name in physical) _storeCard(name),
+        if (online.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 12, 4, 10),
+            child: Text(
+              'ネットのお店',
+              style: TextStyle(
+                  fontSize: 15, fontWeight: FontWeight.bold, color: kTextSub),
             ),
           ),
-        );
-      },
+          for (final name in online) _storeCard(name),
+        ],
+      ],
+    );
+  }
+
+  Widget _storeCard(String name) {
+    final count = store.recordsOfStore(name).length;
+    return Card(
+      color: kCard,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => StorePage(store: store, storeName: name),
+          ),
+        ),
+        onLongPress: () => showStoreMenuSheet(context, store, name),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3E8CF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.storefront,
+                    color: Color(0xFF9A7B4F), size: 26),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(name,
+                              style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: kTextDark)),
+                        ),
+                        if (store.isOnline(name)) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF5B7C99),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text('ネット',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ],
+                    ),
+                    Text('$count件',
+                        style: const TextStyle(fontSize: 13, color: kTextSub)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: kTextSub),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1369,7 +1405,92 @@ void showRecordDeleteSheet(
   );
 }
 
-/// お店の名前を変更するシート（お店カード長押し）
+/// お店のメニューシート（お店カード長押し）
+void showStoreMenuSheet(BuildContext context, DataStore store, String name) {
+  final online = store.isOnline(name);
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: kCream,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (c) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(name,
+                style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.bold,
+                    color: kTextDark)),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () {
+                  Navigator.of(c).pop();
+                  showRenameStoreSheet(context, store, name);
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: kTextDark,
+                  side: const BorderSide(color: Color(0xFFD8CBB2)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('お店の名前を変更',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () async {
+                  Navigator.of(c).pop();
+                  await store.setStoreOnline(name, !online);
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: kTextDark,
+                  side: const BorderSide(color: Color(0xFFD8CBB2)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: Text(online ? '実店舗に戻す' : 'ネットのお店にする',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.of(c).pop(),
+                style: TextButton.styleFrom(
+                  foregroundColor: kTextDark,
+                  backgroundColor: const Color(0xFFEFE5D2),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('やめる',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// お店の名前を変更するシート（お店メニューから開く）
 void showRenameStoreSheet(
     BuildContext context, DataStore store, String oldName) {
   final ctrl = TextEditingController(text: oldName);

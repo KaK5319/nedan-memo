@@ -98,6 +98,9 @@ class DataStore extends ChangeNotifier {
   List<PriceRecord> records = [];
   Map<String, StoreIntro> intros = {};
 
+  /// ネットのお店として印を付けた店名（店名をキーに保存）
+  Set<String> onlineStores = {};
+
   Directory? _docs;
   int _counter = 0;
 
@@ -139,11 +142,15 @@ class DataStore extends ChangeNotifier {
         final rawIntros = (j['intros'] as Map<String, dynamic>?) ?? {};
         intros = rawIntros.map(
             (k, v) => MapEntry(k, StoreIntro.fromJson(v as Map<String, dynamic>)));
+        // 旧データには無い項目なので、無ければ「ネットのお店なし」で始める
+        onlineStores =
+            ((j['onlineStores'] as List?) ?? []).whereType<String>().toSet();
       } catch (_) {
         // 壊れていたら空から始める
         products = [];
         records = [];
         intros = {};
+        onlineStores = {};
       }
     }
     notifyListeners();
@@ -152,10 +159,14 @@ class DataStore extends ChangeNotifier {
   Future<void> save() async {
     final d = await docsDir();
     final f = File('${d.path}/nedan_memo_data.json');
+    // 記録が無くなったお店の印は落とす
+    final liveStores = records.map((r) => r.storeName).toSet();
+    onlineStores.removeWhere((n) => !liveStores.contains(n));
     final j = {
       'products': products.map((e) => e.toJson()).toList(),
       'records': records.map((e) => e.toJson()).toList(),
       'intros': intros.map((k, v) => MapEntry(k, v.toJson())),
+      'onlineStores': onlineStores.toList(),
     };
     await f.writeAsString(jsonEncode(j));
   }
@@ -286,6 +297,19 @@ class DataStore extends ChangeNotifier {
     await changed();
   }
 
+  /// ネットのお店かどうか
+  bool isOnline(String store) => onlineStores.contains(store);
+
+  /// ネットのお店の印を付け外しする
+  Future<void> setStoreOnline(String name, bool online) async {
+    if (online) {
+      onlineStores.add(name);
+    } else {
+      onlineStores.remove(name);
+    }
+    await changed();
+  }
+
   /// お店の名前変更（記録すべてと紹介がついてくる）
   Future<void> renameStore(String oldName, String newName) async {
     if (oldName == newName || newName.isEmpty) return;
@@ -295,6 +319,10 @@ class DataStore extends ChangeNotifier {
     final intro = intros.remove(oldName);
     if (intro != null && !intros.containsKey(newName)) {
       intros[newName] = intro;
+    }
+    // ネットのお店の印も新しい名前についてくる
+    if (onlineStores.remove(oldName)) {
+      onlineStores.add(newName);
     }
     await changed();
   }
